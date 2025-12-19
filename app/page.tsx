@@ -3,6 +3,9 @@ import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VibeCheckPanel } from "@/components/vibe-check-panel";
 import { randomizeTeams } from "@/app/actions/randomize-teams";
+import { NextShuffleTimer } from "@/components/next-shuffle-timer";
+import { RandomizeTeamsButton } from "@/components/randomize-teams-button";
+import { Leaderboard } from "@/components/leaderboard";
 import { Button } from "@/components/ui/button";
 import { UserProfile } from "@/components/user-profile";
 
@@ -36,9 +39,9 @@ async function getDashboardData() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, full_name, team_id")
+    .select("id, email, full_name, team_id, role")
     .eq("id", user.id)
-    .maybeSingle<Profile>();
+    .maybeSingle<Profile & { role: string }>();
 
   if (!profile || !profile.team_id) {
     return {
@@ -83,19 +86,16 @@ export default async function Home() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
+          <NextShuffleTimer />
           <div className="hidden rounded-full border border-zinc-800 bg-zinc-950/40 px-4 py-1 text-xs font-medium uppercase tracking-wide text-zinc-300 shadow-[0_0_25px_rgba(129,140,248,0.4)] sm:block">
             Vibe Judge: Online
           </div>
           <div className="flex items-center gap-2">
-            <form action={randomizeTeams}>
-              <Button
-                type="submit"
-                variant="outline"
-                className="border-indigo-500/60 bg-zinc-950/60 text-xs font-semibold text-indigo-200 hover:bg-zinc-900 hover:text-indigo-100"
-              >
-                Randomize teams
-              </Button>
-            </form>
+            {profile?.role === "admin" && (
+              <form action={randomizeTeams}>
+                <RandomizeTeamsButton />
+              </form>
+            )}
             {user && profile ? (
               <UserProfile email={profile.email} fullName={profile.full_name} />
             ) : (
@@ -110,75 +110,78 @@ export default async function Home() {
       </header>
 
       <section className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)]">
-        <Card className="border-zinc-800/80 bg-zinc-950/60 shadow-[0_0_40px_rgba(15,23,42,0.9)]">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between text-zinc-50">
-              <span>Your team</span>
-              <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300 ring-1 ring-indigo-500/70 shadow-[0_0_18px_rgba(129,140,248,0.7)]">
-                {team ? "Synced" : "Awaiting assignment"}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!user && (
-              <div className="space-y-2 text-sm text-zinc-400">
-                <p>
-                  You&apos;re not signed in yet. Once you log in, we&apos;ll
-                  drop you into a squad of three and keep everyone in sync.
-                </p>
-              </div>
-            )}
-
-            {user && !team && (
-              <div className="space-y-3 text-sm text-zinc-400">
-                <p className="font-medium text-zinc-200">
-                  No team… yet. You&apos;re currently in the lobby.
-                </p>
-                <p>
-                  When the randomizer runs, you&apos;ll be assigned to a
-                  high-signal trio. Until then, enjoy the quiet.
-                </p>
-              </div>
-            )}
-
-            {user && team && (
-              <>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-zinc-500">
-                    Current squad
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-zinc-50">
-                    {team.name}
+        <div className="flex flex-col gap-6">
+          <Card className="border-zinc-800/80 bg-zinc-950/60 shadow-[0_0_40px_rgba(15,23,42,0.9)]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-zinc-50">
+                <span>Your team</span>
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300 ring-1 ring-indigo-500/70 shadow-[0_0_18px_rgba(129,140,248,0.7)]">
+                  {team ? "Synced" : "Awaiting assignment"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!user && (
+                <div className="space-y-2 text-sm text-zinc-400">
+                  <p>
+                    You&apos;re not signed in yet. Once you log in, we&apos;ll
+                    drop you into a squad of three and keep everyone in sync.
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-wide text-zinc-500">
-                    Members
-                  </p>
-                  <ul className="space-y-1.5">
-                    {teammates.map((mate) => (
-                      <li
-                        key={mate.id}
-                        className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm"
-                      >
-                        <span className="font-medium text-zinc-100">
-                          {mate.full_name || mate.email}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {mate.id === user.id ? "You" : "Teammate"}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </>
-            )}
+              )}
 
-            {!user && (
-              <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-900/60" />
-            )}
-          </CardContent>
-        </Card>
+              {user && !team && (
+                <div className="space-y-3 text-sm text-zinc-400">
+                  <p className="font-medium text-zinc-200">
+                    No team… yet. You&apos;re currently in the lobby.
+                  </p>
+                  <p>
+                    When the randomizer runs, you&apos;ll be assigned to a
+                    high-signal trio. Until then, enjoy the quiet.
+                  </p>
+                </div>
+              )}
+
+              {user && team && (
+                <>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Current squad
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-zinc-50">
+                      {team.name}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Members
+                    </p>
+                    <ul className="space-y-1.5">
+                      {teammates.map((mate) => (
+                        <li
+                          key={mate.id}
+                          className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium text-zinc-100">
+                            {mate.full_name || mate.email}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            {mate.id === user.id ? "You" : "Teammate"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+
+              {!user && (
+                <div className="mt-4 h-16 animate-pulse rounded-xl bg-zinc-900/60" />
+              )}
+            </CardContent>
+          </Card>
+          <Leaderboard />
+        </div>
 
         <Card className="border-zinc-800/80 bg-zinc-950/70 shadow-[0_0_45px_rgba(37,99,235,0.45)]">
           <CardHeader>

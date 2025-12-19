@@ -5,6 +5,22 @@ import { createServerSupabaseClient } from "@/utils/supabase/server";
 export async function randomizeTeams() {
   const supabase = await createServerSupabaseClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role !== "admin") {
+    throw new Error("Unauthorized: Only admins can randomize teams.");
+  }
+
   const { data: profiles, error } = await supabase
     .from("profiles")
     .select("id, email");

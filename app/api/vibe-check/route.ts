@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { createServerSupabaseClient } from "@/utils/supabase/server";
 
-const MODEL_NAME = "llama-3.1-70b-versatile";
+const MODEL_NAME = "llama-3.3-70b-versatile";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || "",
@@ -156,6 +157,32 @@ Do not include any extra keys or commentary.
 
   try {
     const parsed = JSON.parse(text) as { score: number; verdict: string };
+
+    // Persist to database
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.team_id) {
+        await supabase.from("submissions").insert({
+          team_id: profile.team_id,
+          created_by: user.id,
+          project_name: body.projectName,
+          project_description: body.projectDescription,
+          ai_score: parsed.score,
+          ai_verdict: parsed.verdict,
+          // We could also save questions/answers if we updated the schema to support it fully
+          // For now we just save the score/verdict for the leaderboard
+        });
+      }
+    }
+
     return NextResponse.json(
       {
         score: parsed.score,
@@ -168,6 +195,29 @@ Do not include any extra keys or commentary.
     const match = text.match(/(\d{1,3})/);
     const score = match ? Math.min(100, Math.max(0, Number(match[1]))) : 0;
     const verdict = text;
+
+    // Persist fallback result too
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.team_id) {
+        await supabase.from("submissions").insert({
+          team_id: profile.team_id,
+          created_by: user.id,
+          project_name: body.projectName,
+          project_description: body.projectDescription,
+          ai_score: score,
+          ai_verdict: verdict,
+        });
+      }
+    }
 
     return NextResponse.json(
       {
